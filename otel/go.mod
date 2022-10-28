@@ -1,6 +1,6 @@
 module github.com/VineethReddy02/tracing-inst-demo/demo-otel
 
-go 1.17
+go 1.19
 
 require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.4

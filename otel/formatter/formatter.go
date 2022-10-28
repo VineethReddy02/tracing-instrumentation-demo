@@ -2,28 +2,29 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+
 	"github.com/VineethReddy02/tracing-inst-demo/demo-otel/lib/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/trace"
-	"log"
-	"net/http"
 )
 
 var ServiceName = "formatter"
 
 func main() {
 	cfg := &tracing.Config{
-		ServiceName:             "formatter",
-		OtelCollectorEndpoint:   "localhost:4317",
+		ServiceName:           "formatter",
+		OtelCollectorEndpoint: "localhost:4317",
 		//JaegerCollectorEndpoint: "http://localhost:14268/api/traces",
-		SamplingRatio:           1,
+		SamplingRatio: 1,
 	}
 
 	_, err := tracing.InitProvider(cfg)
 	if err != nil {
-		err.Error()
+		log.Fatal(err)
 	}
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +42,7 @@ func main() {
 
 		helloTo := r.FormValue("helloTo")
 		helloStr := fmt.Sprintf("%s, %s!", greeting, helloTo)
+		fmt.Println("Formatted string: " + helloStr)
 		span.AddEvent("string-format")
 		span.AddEvent(helloStr)
 		w.Write([]byte(helloStr))

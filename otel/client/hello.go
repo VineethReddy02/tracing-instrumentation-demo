@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
-	xhttp "github.com/VineethReddy02/tracing-inst-demo/demo-otel/lib/http"
 	"github.com/VineethReddy02/tracing-inst-demo/demo-otel/lib/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,7 +20,7 @@ import (
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Errorf("ERROR: Expecting two arguments")
+		log.Fatal("ERROR: Expecting two arguments")
 	}
 
 	cfg := &tracing.Config{
@@ -32,7 +32,7 @@ func main() {
 
 	tp, err := tracing.InitProvider(cfg)
 	if err != nil {
-		fmt.Errorf("%v", err)
+		log.Fatalf("%v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -59,7 +59,7 @@ func main() {
 
 	bag, err := baggage.Parse("greeting=" + greeting)
 	if err != nil {
-		fmt.Println("E1")
+		log.Fatal(err)
 	}
 	bctx := baggage.ContextWithBaggage(spanctx, bag)
 	helloStr := formatString(bctx, helloTo)
@@ -78,44 +78,44 @@ func formatString(ctx context.Context, helloTo string) string {
 	if err != nil {
 		span.SetStatus(codes.Error, "failed to create formatter request")
 		span.RecordError(err)
-		fmt.Errorf("%v", err)
+		log.Fatal(err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
 		span.SetStatus(codes.Error, "failed to reach formatter service")
 		span.RecordError(err)
-		fmt.Errorf("%v", err)
+		log.Fatal(err)
 	}
 
-	var formattedString []byte
-	_, err = resp.Body.Read(formattedString)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Errorf("failed to read the formatter response %v", err)
+		log.Fatal(err)
 	}
 
 	span.AddEvent("string-format")
-	span.AddEvent("event", trace.WithAttributes(attribute.String("value", string(formattedString))))
-	return string(formattedString)
+	span.AddEvent("event", trace.WithAttributes(attribute.String("value", string(bodyBytes))))
+	return string(bodyBytes)
 }
 
 func printHello(ctx context.Context, helloStr string) {
-	ctx, span := tracing.Default().Start(ctx, "print-hello")
+	spanctx, span := tracing.Default().Start(ctx, "print-hello")
 	defer span.End()
 
 	v := url.Values{}
 	v.Set("helloStr", helloStr)
 	url := "http://localhost:8082/publish?" + v.Encode()
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	req, err := http.NewRequestWithContext(spanctx, "GET", url, nil)
 	if err != nil {
 		span.SetStatus(codes.Error, "failed to create a new publisher request")
 		span.RecordError(err)
-		fmt.Errorf("%v", err)
+		log.Fatal(err)
 	}
 
-	if _, err := xhttp.Do(req); err != nil {
+	if _, err := client.Do(req); err != nil {
 		span.SetStatus(codes.Error, "failed to reach publisher service")
 		span.RecordError(err)
-		fmt.Errorf("%v", err)
+		log.Fatal(err)
 	}
 }

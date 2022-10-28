@@ -6,7 +6,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"log"
 	"net/http"
-
 )
 
 var Servicename = "publisher"
@@ -21,13 +20,13 @@ func main() {
 
 	_, err := tracing.InitProvider(cfg)
 	if err != nil {
-		err.Error()
+		log.Fatal(err)
 	}
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		_, span := otel.Tracer(Servicename).Start(r.Context(), "publisher")
+		ctx := r.Context()
+		_, span := otel.Tracer(Servicename).Start(ctx, "publisher")
 		defer span.End()
-
 		helloStr := r.FormValue("helloStr")
 		println(helloStr)
 	}
